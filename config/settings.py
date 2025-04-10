@@ -117,6 +117,15 @@ USE_I18N = True
 
 USE_TZ = True
 
+from mongoengine import connect
+
+connect(
+    db="travelplanner",      # MongoDB database name
+    host="localhost",        #  Atlas URI
+    port=27017               # default local port
+)
+
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
