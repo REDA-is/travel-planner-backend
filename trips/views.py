@@ -2,8 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from ml_models.planner import generate_plans
-from .serializers import PlanRequestSerializer, ConfirmedTripSerializer
-from .models import ConfirmedTrip
+from .serializers import PlanRequestSerializer
+from trips.models_mongo import ConfirmedTrip  # MongoEngine model
 import uuid
 
 # Currency exchange rates to MAD
@@ -14,6 +14,7 @@ EXCHANGE_RATES = {
     "GBP": 12.5,
     "JPY": 0.072,
 }
+
 
 class PlanView(APIView):
     def post(self, request):
@@ -49,19 +50,24 @@ class ConfirmTripView(APIView):
             if not selected_plan or not selected_plan.get('id'):
                 return Response({"error": "selectedPlan with id is required"}, status=400)
 
-            trip = ConfirmedTrip.objects.create(
+            # Save using MongoEngine
+            trip = ConfirmedTrip(
                 region=region,
                 budget=budget,
                 currency=currency,
                 lifestyle=lifestyle,
                 selected_plan=selected_plan
             )
+            trip.save()
 
-            serializer = ConfirmedTripSerializer(trip)
             return Response({
                 "status": "confirmed",
                 "message": "Trip successfully saved!",
-                "data": serializer.data
+                "data": {
+                    "id": str(trip.id),
+                    "region": trip.region,
+                    "lifestyle": trip.lifestyle
+                }
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
@@ -73,20 +79,28 @@ class ConfirmedTripsListView(APIView):
         region = request.query_params.get('region')
         lifestyle = request.query_params.get('lifestyle')
 
-        trips = ConfirmedTrip.objects.all()
-
+        filters = {}
         if region:
-            trips = trips.filter(region__iexact=region)
+            filters['region'] = region
         if lifestyle:
-            trips = trips.filter(lifestyle__iexact=lifestyle)
+            filters['lifestyle'] = lifestyle
 
-        trips = trips.order_by('-created_at')
-        serializer = ConfirmedTripSerializer(trips, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    
-from django.core.cache import cache  # Optional if you want caching
-from trips.models_mongo import ConfirmedTrip
+        try:
+            trips = ConfirmedTrip.objects(**filters).order_by('-created_at')
 
+            results = []
+            for trip in trips:
+                results.append({
+                    "id": str(trip.id),
+                    "region": trip.region,
+                    "budget": trip.budget,
+                    "currency": trip.currency,
+                    "lifestyle": trip.lifestyle,
+                    "selected_plan": trip.selected_plan,
+                    "created_at": trip.created_at
+                })
 
-  
+            return Response(results, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
