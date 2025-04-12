@@ -41,33 +41,40 @@ class PlanView(APIView):
 class ConfirmTripView(APIView):
     def post(self, request):
         try:
-            selected_plan = request.data.get('selectedPlan')
+            selected_plans = request.data.get('selectedPlans')
             region = request.data.get('region')
             budget = request.data.get('budget')
             currency = request.data.get('currency')
             lifestyle = request.data.get('lifestyle')
 
-            if not selected_plan or not selected_plan.get('id'):
-                return Response({"error": "selectedPlan with id is required"}, status=400)
+            if not selected_plans or not isinstance(selected_plans, list):
+                return Response({"error": "selectedPlans must be a list of plans"}, status=400)
 
-            # Save using MongoEngine
-            trip = ConfirmedTrip(
-                region=region,
-                budget=budget,
-                currency=currency,
-                lifestyle=lifestyle,
-                selected_plan=selected_plan
-            )
-            trip.save()
+            saved = []
+
+            for plan in selected_plans:
+                if not plan.get("id"):
+                    continue  # Skip plans without ID
+
+                trip = ConfirmedTrip(
+                    region=region,
+                    budget=budget,
+                    currency=currency,
+                    lifestyle=lifestyle,
+                    selected_plan=plan
+                )
+                trip.save()
+                saved.append({
+                    "id": str(trip.id),
+                    "title": trip.selected_plan.get("title"),
+                    "region": trip.region,
+                    "lifestyle": trip.lifestyle
+                })
 
             return Response({
                 "status": "confirmed",
-                "message": "Trip successfully saved!",
-                "data": {
-                    "id": str(trip.id),
-                    "region": trip.region,
-                    "lifestyle": trip.lifestyle
-                }
+                "message": f"{len(saved)} trip(s) successfully saved!",
+                "data": saved
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
