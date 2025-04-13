@@ -4,7 +4,6 @@ from rest_framework import status
 from ml_models.planner import generate_plans
 from .serializers import PlanRequestSerializer
 from trips.models_mongo import ConfirmedTrip  # MongoEngine model
-import uuid
 
 # Currency exchange rates to MAD
 EXCHANGE_RATES = {
@@ -33,10 +32,7 @@ class PlanView(APIView):
                 lifestyle=data['lifestyle']
             )
 
-            # ✅ Add UUID to each generated plan
-            for plan in result["plans"]:
-                plan["id"] = str(uuid.uuid4())
-
+            # UUIDs already generated in generate_plans() → no need to add here
             return Response(result, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
