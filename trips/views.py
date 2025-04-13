@@ -33,6 +33,10 @@ class PlanView(APIView):
                 lifestyle=data['lifestyle']
             )
 
+            # ✅ Add UUID to each generated plan
+            for plan in result["plans"]:
+                plan["id"] = str(uuid.uuid4())
+
             return Response(result, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
